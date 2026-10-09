@@ -7,17 +7,18 @@ import JoinScreen from './screens/JoinScreen';
 import LobbyScreen from './screens/LobbyScreen';
 import GameScreen from './screens/GameScreen';
 import MeetingScreen from './screens/MeetingScreen';
+import EjectionScreen from './screens/EjectionScreen';
 
 export default function App() {
   const { faseGioco } = useGameStore();
 
   return (
     <MobileFrame>
-      {/* Header visibile a partire dalla Lobby */}
-      {faseGioco !== 'JOIN' && <HeaderBar />}
+      {/* Header visibile a partire dalla Lobby e non durante l'espulsione cinematica */}
+      {faseGioco !== 'JOIN' && faseGioco !== 'EJECTION' && <HeaderBar />}
 
       {/* Switch delle schermate con animazioni Framer Motion */}
-      <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-slate-950">
         <AnimatePresence mode="wait">
           {faseGioco === 'JOIN' && (
             <motion.div
@@ -25,7 +26,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.2 }}
               className="flex h-full flex-col"
             >
               <JoinScreen />
@@ -38,7 +39,7 @@ export default function App() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.2 }}
               className="flex h-full flex-col"
             >
               <LobbyScreen />
@@ -51,7 +52,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.2 }}
               className="flex h-full flex-col"
             >
               <GameScreen />
@@ -64,10 +65,23 @@ export default function App() {
               initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.25 }}
               className="flex h-full flex-col"
             >
               <MeetingScreen />
+            </motion.div>
+          )}
+
+          {faseGioco === 'EJECTION' && (
+            <motion.div
+              key="ejection"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex h-full flex-col"
+            >
+              <EjectionScreen />
             </motion.div>
           )}
         </AnimatePresence>

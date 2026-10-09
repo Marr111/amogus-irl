@@ -1,43 +1,45 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  CheckCircle2, 
-  Circle, 
-  Siren, 
-  AlertTriangle, 
+  Check, 
   MapPin, 
-  QrCode, 
-  Clock, 
+  AlertTriangle, 
+  Flame, 
+  Radio, 
   Skull,
-  Radio,
-  Zap,
-  Flame
+  Megaphone,
+  Loader2
 } from 'lucide-react';
+import CrewmateIcon from '../components/CrewmateIcon';
+import AmongUsTaskBar from '../components/AmongUsTaskBar';
+import EmergencyButton from '../components/EmergencyButton';
 import { useGameStore } from '../store/useGameStore';
+import { SoundFX } from '../utils/audio';
+import { OllamaService } from '../utils/ollama';
 
 export default function GameScreen() {
-  const { 
-    tasks, 
-    completaTask, 
-    chiamaMeeting, 
-    giocatoreCorrente, 
-    meetingInfo 
+  const {
+    tasks,
+    completaTask,
+    chiamaMeeting,
+    giocatoreCorrente,
+    isMuted,
   } = useGameStore();
 
   const [activeTaskProcessing, setActiveTaskProcessing] = useState(null);
   const [taskProgress, setTaskProgress] = useState(0);
+  const [clueNotice, setClueNotice] = useState(null);
+  const [loadingClue, setLoadingClue] = useState(false);
 
   const completedCount = tasks.filter((t) => t.completata).length;
-  const totalTasks = tasks.length;
-  const progressPercent = Math.round((completedCount / totalTasks) * 100);
-
   const isImpostor = giocatoreCorrente.ruolo === 'Impostor';
   const isMorto = giocatoreCorrente.vitale === 'morto';
 
-  // Simula il completamento interattivo di una task
+  // Simula esecuzione task
   const handleStartTask = (task) => {
     if (task.completata || activeTaskProcessing) return;
 
+    SoundFX.playButtonPop(isMuted);
     setActiveTaskProcessing(task.id);
     setTaskProgress(0);
 
@@ -57,65 +59,57 @@ export default function GameScreen() {
     }, stepMs);
   };
 
+  // Sabotaggio per Impostore con allarme audio
+  const handleSabotage = () => {
+    SoundFX.playSabotageAlert(isMuted);
+    alert('🚨 ALLARME SABOTAGGIO! Luci manomesse: i Crewmate hanno 60 secondi per ripararle IRL.');
+  };
+
+  // Generazione indizio tramite Ollama (Llama 3 locale)
+  const handleRadarScan = async () => {
+    SoundFX.playButtonPop(isMuted);
+    setLoadingClue(true);
+    setClueNotice('Analisi sensori con Llama 3...');
+    const clue = await OllamaService.generateClue('Corridoio Skeld');
+    setClueNotice(clue);
+    setLoadingClue(false);
+  };
+
   return (
-    <div className={`flex flex-1 flex-col justify-between p-4 overflow-hidden ${isMorto ? 'opacity-85' : ''}`}>
-      {/* Ghost Banner se il giocatore è morto */}
-      {isMorto && (
-        <div className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-purple-500/50 bg-purple-950/40 py-1.5 text-xs font-mono text-purple-300">
-          <Skull className="h-4 w-4" />
-          MODALITÀ FANTASMA // PUOI ANCORA COMPLETARE LE TASK
-        </div>
-      )}
+    <div className={`flex flex-1 flex-col justify-between p-3.5 overflow-hidden bg-slate-950 ${isMorto ? 'opacity-90' : ''}`}>
+      {/* Top Banner: Barra Ufficiale Among Us */}
+      <div className="flex flex-col gap-2">
+        <AmongUsTaskBar completed={completedCount} total={tasks.length} />
 
-      {/* Notifica Ultimo Espulso (se presente) */}
-      {meetingInfo.ultimoEspulso && (
-        <div className="mb-2 rounded-xl border border-slate-700 bg-space-850 p-2 text-center text-xs font-mono text-slate-300 shadow">
-          📢 {meetingInfo.ultimoEspulso}
-        </div>
-      )}
+        {/* Modalità Fantasma se il giocatore è morto */}
+        {isMorto && (
+          <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-black bg-purple-900/60 py-1 text-xs font-black text-purple-200 shadow-[2px_2px_0_#000]">
+            <CrewmateIcon color={giocatoreCorrente.colore} size="xs" isGhost={true} />
+            <span>SEI UN FANTASMA: COMPLETA LE TUE TASK!</span>
+          </div>
+        )}
 
-      {/* Top Section: Barra di Avanzamento Task Stile Among Us */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-xs font-mono">
-          <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-neon-green">
-            <Zap className="h-4 w-4" />
-            Progresso Task Equipaggio
-          </span>
-          <span className="font-bold text-white">{completedCount}/{totalTasks} ({progressPercent}%)</span>
-        </div>
-
-        {/* Progress Bar Container */}
-        <div className="h-3.5 w-full overflow-hidden rounded-full border border-slate-700 bg-space-950 p-0.5 shadow-inner">
-          <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon-green shadow-glow-green"
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercent}%` }}
-            transition={{ ease: 'easeOut', duration: 0.4 }}
-          />
-        </div>
-
-        {/* Obiettivo Ruolo */}
-        <div className={`mt-1 rounded-xl border px-3 py-1.5 text-[11px] font-mono flex items-center justify-between ${
-          isImpostor 
-            ? 'border-neon-red/40 bg-neon-red/10 text-red-200' 
-            : 'border-neon-cyan/40 bg-neon-cyan/10 text-cyan-200'
-        }`}>
-          <span>
-            {isImpostor 
-              ? 'OBIETTIVO: Elimina l\'equipaggio senza farti scoprire!' 
-              : 'OBIETTIVO: Completa tutte le task fisiche e digitali!'}
-          </span>
-          <span className="font-bold text-white uppercase">{giocatoreCorrente.ruolo}</span>
-        </div>
+        {/* Notifica Indizio LLM */}
+        {clueNotice && (
+          <div className="flex items-center justify-between rounded-xl border-2 border-black bg-slate-900 p-2 text-xs font-black text-cyan-300 shadow-[2px_2px_0_#000]">
+            <span>📡 {clueNotice}</span>
+            <button
+              onClick={() => setClueNotice(null)}
+              className="ml-2 rounded bg-slate-800 px-1 text-[10px] text-white"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Middle Section: Lista Task */}
-      <div className="my-2.5 flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between pb-1.5 px-1">
-          <span className="text-xs font-mono uppercase tracking-wider text-slate-300">
-            I Tuoi Compiti ({tasks.length})
+      {/* Sezione Centrale: Lista Task stile Among Us con evidenziazioni gialle */}
+      <div className="my-2 flex flex-1 flex-col overflow-hidden">
+        <div className="flex items-center justify-between pb-1 px-1">
+          <span className="text-xs font-black uppercase tracking-wider text-yellow-300 drop-shadow-[0_1px_0_#000]">
+            {isImpostor ? 'Compiti Falsi (Fake Tasks)' : 'I Tuoi Compiti (Tasks)'}
           </span>
-          <span className="text-[10px] font-mono text-slate-400">Tocca per eseguire</span>
+          <span className="text-[10px] font-bold text-slate-400">Tocca per svolgere</span>
         </div>
 
         <div className="custom-scrollbar flex-1 overflow-y-auto space-y-2 pr-1">
@@ -127,63 +121,65 @@ export default function GameScreen() {
                 key={task.id}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleStartTask(task)}
-                className={`relative overflow-hidden rounded-2xl border p-3.5 transition-all cursor-pointer ${
+                className={`relative overflow-hidden rounded-xl border-[3px] border-black p-2.5 transition-all cursor-pointer shadow-[3px_3px_0_#000] ${
                   task.completata
-                    ? 'border-emerald-900/60 bg-emerald-950/20 opacity-80'
+                    ? 'bg-slate-900 opacity-60'
                     : isProcessing
-                    ? 'border-neon-cyan bg-cyan-950/30 shadow-glow-cyan'
-                    : 'border-slate-800 bg-space-850 hover:border-slate-700 active:bg-slate-800'
+                    ? 'bg-slate-800 ring-2 ring-yellow-400'
+                    : 'bg-slate-900 hover:bg-slate-850'
                 }`}
               >
-                {/* Indicatore Progresso Live interno alla card se in corso */}
+                {/* Avanzamento della barra interna alla card durante l'azione */}
                 {isProcessing && (
                   <div
-                    className="absolute bottom-0 left-0 top-0 bg-neon-cyan/15 transition-all"
+                    className="absolute bottom-0 left-0 top-0 bg-yellow-400/20 transition-all"
                     style={{ width: `${taskProgress}%` }}
                   />
                 )}
 
-                <div className="relative flex items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
+                <div className="relative flex items-center justify-between gap-2">
+                  <div className="flex items-start gap-2.5">
+                    {/* Indicatore Giallo stile freccia Among Us */}
                     <div className="mt-0.5">
                       {task.completata ? (
-                        <CheckCircle2 className="h-5 w-5 text-neon-green" />
-                      ) : isProcessing ? (
-                        <Clock className="h-5 w-5 text-neon-cyan animate-spin" />
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-green-500 text-black">
+                          <Check className="h-3.5 w-3.5 stroke-[3]" />
+                        </div>
                       ) : (
-                        <Circle className="h-5 w-5 text-slate-500" />
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-yellow-400 text-black font-black text-xs">
+                          !
+                        </div>
                       )}
                     </div>
 
                     <div>
-                      <h4 className={`text-sm font-bold ${task.completata ? 'line-through text-slate-400' : 'text-white'}`}>
+                      <h4
+                        className={`text-xs font-black ${
+                          task.completata ? 'line-through text-slate-500' : 'text-white'
+                        }`}
+                      >
                         {task.titolo}
                       </h4>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] font-mono text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-neon-yellow" />
-                          {task.zona}
-                        </span>
-                        <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] text-slate-300">
-                          {task.tipo}
-                        </span>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-black text-yellow-300">
+                        <MapPin className="h-3 w-3" />
+                        <span>{task.zona}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Badge */}
+                  {/* Badge Stato */}
                   <div>
                     {task.completata ? (
-                      <span className="rounded-lg border border-neon-green/40 bg-neon-green/10 px-2 py-1 text-[10px] font-mono font-bold text-neon-green">
+                      <span className="rounded-md border border-black bg-green-500/20 px-2 py-0.5 text-[10px] font-black text-green-400">
                         FATTO
                       </span>
                     ) : isProcessing ? (
-                      <span className="rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 px-2 py-1 text-[10px] font-mono font-bold text-neon-cyan">
+                      <span className="rounded-md border border-black bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
                         {taskProgress}%
                       </span>
                     ) : (
-                      <span className="rounded-lg border border-slate-700 bg-space-950 px-2 py-1 text-[10px] font-mono text-slate-400">
-                        ESEGUI
+                      <span className="rounded-md border border-black bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-300">
+                        INIZIA
                       </span>
                     )}
                   </div>
@@ -194,50 +190,40 @@ export default function GameScreen() {
         </div>
       </div>
 
-      {/* Bottom Section: Bottoni di Emergenza */}
-      <div className="flex flex-col gap-2 pt-1">
-        {/* Grande Pulsante Emergency Meeting */}
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => chiamaMeeting(giocatoreCorrente.nome || 'Tu', 'Pulsante d\'Emergenza Premuto')}
-          className="relative group flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border-2 border-neon-red bg-gradient-to-r from-red-600 via-rose-600 to-red-700 py-3.5 text-white shadow-glow-red font-black tracking-wider uppercase transition-all"
-        >
-          {/* Sfondo Hazard Stripes animato */}
-          <div className="absolute inset-0 opacity-15 bg-[repeating-linear-gradient(45deg,#000,#000_10px,#fff_10px,#fff_20px)]" />
-          
-          <Siren className="h-6 w-6 text-white animate-bounce" />
-          <span className="text-base font-extrabold tracking-widest drop-shadow">
-            EMERGENCY MEETING
-          </span>
-          <Siren className="h-6 w-6 text-white animate-bounce" />
-        </motion.button>
+      {/* Sezione Inferiore: Il Tipico Pulsante Rosso d'Emergenza Among Us */}
+      <div className="flex flex-col items-center">
+        <EmergencyButton
+          onTrigger={() => chiamaMeeting(giocatoreCorrente.nome || 'Tu', 'Pulsante d\'Emergenza!')}
+        />
 
-        {/* Pulsante Secondario: Segnala Cadavere (Report Body) */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Azioni Ausiliarie: Segnala Cadavere & Azione Speciale */}
+        <div className="mt-1 grid w-full grid-cols-2 gap-2">
+          {/* Tasto Report Body */}
           <button
             onClick={() => chiamaMeeting(giocatoreCorrente.nome || 'Tu', 'Cadavere Trovato!')}
-            className="flex items-center justify-center gap-2 rounded-xl border border-amber-600/60 bg-amber-950/40 py-2.5 text-xs font-mono font-bold text-amber-300 hover:bg-amber-900/40 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-1.5 rounded-xl border-[3px] border-black bg-gradient-to-b from-blue-500 to-blue-700 py-2.5 text-xs font-black uppercase text-white shadow-[2px_2px_0_#000] active:translate-y-0.5"
           >
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
-            Segnala Cadavere
+            <Megaphone className="h-4 w-4 fill-white" />
+            Report Body
           </button>
 
-          {/* Azione Speciale Ruolo (Sabotaggio per Impostore / Scanner per Crewmate) */}
+          {/* Azione Ruolo */}
           {isImpostor ? (
             <button
-              onClick={() => alert('Sabotaggio Luci/O2 attivato! Gli astronauti hanno 60 secondi per ripararlo IRL.')}
-              className="flex items-center justify-center gap-2 rounded-xl border border-neon-red/60 bg-red-950/40 py-2.5 text-xs font-mono font-bold text-neon-red hover:bg-red-900/40 active:scale-95 transition-all"
+              onClick={handleSabotage}
+              className="flex items-center justify-center gap-1.5 rounded-xl border-[3px] border-black bg-gradient-to-b from-red-600 to-red-800 py-2.5 text-xs font-black uppercase text-white shadow-[2px_2px_0_#000] active:translate-y-0.5"
             >
               <Flame className="h-4 w-4" />
-              Sabotaggio Luci
+              Sabotaggio
             </button>
           ) : (
             <button
-              onClick={() => alert('Sensore di prossimità attivo: nessun impostore nelle vicinanze immediate.')}
-              className="flex items-center justify-center gap-2 rounded-xl border border-cyan-800 bg-space-850 py-2.5 text-xs font-mono font-bold text-neon-cyan hover:bg-slate-800 active:scale-95 transition-all"
+              onClick={handleRadarScan}
+              disabled={loadingClue}
+              className="flex items-center justify-center gap-1.5 rounded-xl border-[3px] border-black bg-gradient-to-b from-slate-700 to-slate-800 py-2.5 text-xs font-black uppercase text-cyan-300 shadow-[2px_2px_0_#000] active:translate-y-0.5"
             >
-              <Radio className="h-4 w-4" />
-              Radar Scansione
+              {loadingClue ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}
+              Indizio IA
             </button>
           )}
         </div>
