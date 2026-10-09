@@ -1,27 +1,30 @@
 import { create } from 'zustand';
 import { SoundFX } from '../utils/audio';
+import { ALL_ROLES } from '../utils/roles';
 
 // Colori ufficiali Among Us
 export const AMONGUS_COLORS = [
+  { id: 'cyan', name: 'Ciano', hex: '#38fedc', text: 'black' },
   { id: 'red', name: 'Rosso', hex: '#c51111', text: 'white' },
   { id: 'blue', name: 'Blu', hex: '#132ed1', text: 'white' },
   { id: 'green', name: 'Verde', hex: '#117f2d', text: 'white' },
   { id: 'pink', name: 'Rosa', hex: '#ed54ba', text: 'white' },
   { id: 'orange', name: 'Arancione', hex: '#ef7d0d', text: 'white' },
   { id: 'yellow', name: 'Giallo', hex: '#f5f557', text: 'black' },
-  { id: 'cyan', name: 'Ciano', hex: '#38fedc', text: 'black' },
   { id: 'purple', name: 'Viola', hex: '#6b2fbb', text: 'white' },
   { id: 'lime', name: 'Lime', hex: '#50ef39', text: 'black' },
   { id: 'white', name: 'Bianco', hex: '#d6e0f0', text: 'black' },
 ];
 
 const INITIAL_PLAYERS = [
-  { id: '1', nome: 'Tu (Comandante)', colore: '#38fedc', ruolo: 'Crewmate', vivo: true, votiRicevuti: 0, alibi: '' },
-  { id: '2', nome: 'Rosso', colore: '#c51111', ruolo: 'Impostor', vivo: true, votiRicevuti: 0, alibi: '' },
-  { id: '3', nome: 'Verde', colore: '#117f2d', ruolo: 'Crewmate', vivo: true, votiRicevuti: 0, alibi: '' },
-  { id: '4', nome: 'Viola', colore: '#6b2fbb', ruolo: 'Crewmate', vivo: true, votiRicevuti: 0, alibi: '' },
-  { id: '5', nome: 'Giallo', colore: '#f5f557', ruolo: 'Crewmate', vivo: true, votiRicevuti: 0, alibi: '' },
-  { id: '6', nome: 'Arancio', colore: '#ef7d0d', ruolo: 'Crewmate', vivo: true, votiRicevuti: 0, alibi: '' },
+  { id: '1', nome: 'Tu (Comandante)', colore: '#38fedc', ruolo: 'Scientist', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '2', nome: 'Rosso', colore: '#c51111', ruolo: 'Impostor', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '3', nome: 'Verde', colore: '#117f2d', ruolo: 'Engineer', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '4', nome: 'Viola', colore: '#6b2fbb', ruolo: 'Jester', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '5', nome: 'Giallo', colore: '#f5f557', ruolo: 'Sheriff', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '6', nome: 'Arancio', colore: '#ef7d0d', ruolo: 'Doomsayer', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '7', nome: 'Rosa', colore: '#ed54ba', ruolo: 'Crewmate', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
+  { id: '8', nome: 'Blu', colore: '#132ed1', ruolo: 'Crewmate', vivo: true, protetto: false, votiRicevuti: 0, alibi: '' },
 ];
 
 const INITIAL_TASKS = [
@@ -44,12 +47,12 @@ export const useGameStore = create((set, get) => ({
   giocatoreCorrente: {
     id: '1',
     nome: '',
-    ruolo: 'Crewmate', // 'Crewmate' | 'Impostor'
+    ruolo: 'Scientist', // Crewmate, Impostor, Scientist, Sheriff, Engineer, Jester, Doomsayer, GuardianAngel
     vitale: 'vivo',    // 'vivo' | 'morto'
     colore: '#38fedc',
+    protetto: false,
   },
 
-  codiceStanza: 'SKELD-99',
   giocatori: INITIAL_PLAYERS,
   tasks: INITIAL_TASKS,
 
@@ -63,7 +66,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   // Dati schermata espulsione stellare
-  ejectionInfo: null, // { nome, colore, wasImpostor, impostorsRimasti, testo }
+  ejectionInfo: null, // { nome, colore, wasImpostor, wasJester, impostorsRimasti, testo }
 
   // Cambia colore giocatore
   setColoreGiocatore: (hex) => {
@@ -86,6 +89,17 @@ export const useGameStore = create((set, get) => ({
     }));
   },
 
+  // Imposta direttamente uno qualsiasi degli 8 ruoli
+  setRuoloGiocatore: (ruoloKey) => {
+    const roleObj = ALL_ROLES[ruoloKey];
+    if (!roleObj) return;
+    set((state) => ({
+      giocatoreCorrente: { ...state.giocatoreCorrente, ruolo: ruoloKey },
+      giocatori: state.giocatori.map((p) => (p.id === '1' ? { ...p, ruolo: ruoloKey } : p)),
+    }));
+  },
+
+  // Passa alla schermata di attesa (unica per tutti)
   entraInLobby: () => {
     const nomeAttuale = get().giocatoreCorrente.nome;
     if (!nomeAttuale) get().setNomeGiocatore('Astronauta');
@@ -93,11 +107,13 @@ export const useGameStore = create((set, get) => ({
     set({ faseGioco: 'LOBBY' });
   },
 
+  // Avvio partita
   avviaPartita: () => {
     SoundFX.playButtonPop(get().isMuted);
     set({ faseGioco: 'IN_GIOCO' });
   },
 
+  // Task completata
   completaTask: (taskId) => {
     SoundFX.playTaskComplete(get().isMuted);
     set((state) => ({
@@ -105,6 +121,7 @@ export const useGameStore = create((set, get) => ({
     }));
   },
 
+  // Chiama Emergency Meeting
   chiamaMeeting: (chiamaDa = 'Tu', motivo = 'Pulsante d\'emergenza premuto!') => {
     SoundFX.playEmergencyAlarm(get().isMuted);
     set((state) => ({
@@ -128,6 +145,7 @@ export const useGameStore = create((set, get) => ({
     }));
   },
 
+  // Voto al meeting
   votaGiocatore: (targetId) => {
     const state = get();
     if (state.meetingInfo.mioVoto) return;
@@ -137,8 +155,7 @@ export const useGameStore = create((set, get) => ({
     set((s) => {
       const updatedGiocatori = s.giocatori.map((p) => {
         let voti = p.id === targetId ? 1 : 0;
-        // Bot random votes
-        if (p.vivo && Math.random() > 0.5) {
+        if (p.vivo && Math.random() > 0.45) {
           voti += Math.floor(Math.random() * 2) + 1;
         }
         return { ...p, votiRicevuti: p.votiRicevuti + voti };
@@ -151,6 +168,42 @@ export const useGameStore = create((set, get) => ({
     });
   },
 
+  // Azione Sceriffo: spara a un sospetto
+  sparoSceriffo: (targetId) => {
+    const { giocatori, giocatoreCorrente, isMuted } = get();
+    const bersaglio = giocatori.find((p) => p.id === targetId);
+    if (!bersaglio || !bersaglio.vivo) return;
+
+    SoundFX.playSabotageAlert(isMuted);
+
+    if (bersaglio.ruolo === 'Impostor') {
+      // Ha eliminato l'impostore! Bersaglio muore.
+      alert(`🎯 Colpo a segno! ${bersaglio.nome} era un IMPOSTORE ed è stato eliminato!`);
+      set((s) => ({
+        giocatori: s.giocatori.map((p) => (p.id === targetId ? { ...p, vivo: false } : p)),
+      }));
+    } else {
+      // Fuoco amico su innocente: muore lo Sceriffo stesso!
+      alert(`💥 Tragico errore! ${bersaglio.nome} era innocente (${bersaglio.ruolo})! Lo Sceriffo muore per senso di colpa.`);
+      set((s) => ({
+        giocatoreCorrente: { ...giocatoreCorrente, vitale: 'morto' },
+        giocatori: s.giocatori.map((p) => (p.id === '1' ? { ...p, vivo: false } : p)),
+      }));
+    }
+  },
+
+  // Azione Angelo Custode: protegge un compagno vivo
+  applicaScudoAngelo: (targetId) => {
+    const { giocatori, isMuted } = get();
+    SoundFX.playTaskComplete(isMuted);
+    const target = giocatori.find((p) => p.id === targetId);
+    alert(`🛡️ Scudo applicato a ${target ? target.nome : 'un compagno'} per questo turno!`);
+    set((s) => ({
+      giocatori: s.giocatori.map((p) => (p.id === targetId ? { ...p, protetto: true } : p)),
+    }));
+  },
+
+  // Concludi votazione ed espelli
   concludiMeeting: () => {
     const { giocatori, giocatoreCorrente, isMuted } = get();
     SoundFX.playEjectionSound(isMuted);
@@ -167,15 +220,21 @@ export const useGameStore = create((set, get) => ({
 
     const espulso = piuVotato && maxVoti > 1 ? piuVotato : null;
     const wasImpostor = espulso?.ruolo === 'Impostor';
+    const wasJester = espulso?.ruolo === 'Jester';
+
     const remainingImpostors = giocatori.filter(
       (g) => g.ruolo === 'Impostor' && g.id !== espulso?.id && g.vivo
     ).length;
 
-    let testoEspulsione = 'Nessuno è stato espulso. (Pareggio o Voto Saltato)';
+    let testoEspulsione = 'Nessuno è stato espulso. (Pareggio o Skip)';
     if (espulso) {
-      testoEspulsione = wasImpostor
-        ? `${espulso.nome} era un Impostore.`
-        : `${espulso.nome} non era un Impostore.`;
+      if (wasJester) {
+        testoEspulsione = `🃏 ${espulso.nome} ERA IL GIULLARE! HA VINTO DA SOLO LA PARTITA!`;
+      } else if (wasImpostor) {
+        testoEspulsione = `${espulso.nome} era un Impostore.`;
+      } else {
+        testoEspulsione = `${espulso.nome} non era un Impostore.`;
+      }
     }
 
     set((state) => ({
@@ -184,6 +243,7 @@ export const useGameStore = create((set, get) => ({
         nome: espulso ? espulso.nome : null,
         colore: espulso ? espulso.colore : null,
         wasImpostor,
+        wasJester,
         impostorsRimasti: remainingImpostors,
         testo: testoEspulsione,
       },
@@ -199,16 +259,6 @@ export const useGameStore = create((set, get) => ({
 
   fineEspulsione: () => {
     set({ faseGioco: 'IN_GIOCO', ejectionInfo: null });
-  },
-
-  toggleRuolo: () => {
-    set((state) => {
-      const nuovoRuolo = state.giocatoreCorrente.ruolo === 'Crewmate' ? 'Impostor' : 'Crewmate';
-      return {
-        giocatoreCorrente: { ...state.giocatoreCorrente, ruolo: nuovoRuolo },
-        giocatori: state.giocatori.map((p) => (p.id === '1' ? { ...p, ruolo: nuovoRuolo } : p)),
-      };
-    });
   },
 
   toggleVitale: () => {
@@ -228,7 +278,7 @@ export const useGameStore = create((set, get) => ({
       faseGioco: 'JOIN',
       giocatori: INITIAL_PLAYERS,
       tasks: INITIAL_TASKS,
-      giocatoreCorrente: { id: '1', nome: '', ruolo: 'Crewmate', vitale: 'vivo', colore: '#38fedc' },
+      giocatoreCorrente: { id: '1', nome: '', ruolo: 'Scientist', vitale: 'vivo', colore: '#38fedc', protetto: false },
       meetingInfo: { chiamaDa: null, motivo: '', tempoRimanente: 60, mioVoto: null, ultimoEspulso: null },
       ejectionInfo: null,
     });
